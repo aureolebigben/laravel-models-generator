@@ -23,8 +23,13 @@ trait HasCasts
             $body .= $this->spacer.'{'."\n";
             $body .= str_repeat($this->spacer, 2).'return ['."\n";
             foreach ($this->entity->casts as $column => $type) {
-                if (array_key_exists($column, (array) config('models-generator.enums_casting', []))) {
-                    $type = '\\'.config('models-generator.enums_casting', [])[$column].'::class';
+                $configEnums = (array) config('models-generator.enums_casting', []);
+                if (array_key_exists($this->entity->name, $configEnums)
+                    && array_key_exists($column, $configEnums[$this->entity->name])
+                ) {
+                    $type = '\\'.$configEnums[$this->entity->name][$column].'::class';
+                } elseif (array_key_exists($column, $configEnums)) {
+                    $type = '\\'.$configEnums[$column].'::class';
                 } else {
                     $type = '\''.$type.'\'';
                 }

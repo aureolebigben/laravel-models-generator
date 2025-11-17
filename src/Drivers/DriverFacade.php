@@ -7,6 +7,7 @@ namespace GiacomoMasseroni\LaravelModelsGenerator\Drivers;
 use Doctrine\DBAL\Exception;
 use GiacomoMasseroni\LaravelModelsGenerator\Contracts\DriverConnectorInterface;
 use GiacomoMasseroni\LaravelModelsGenerator\Exceptions\DatabaseDriverNotFound;
+use Illuminate\Support\Collection;
 
 class DriverFacade
 {
@@ -16,6 +17,7 @@ class DriverFacade
     public static function instance(string $driver, ?string $connection = null, ?string $schema = null, ?string $table = null): DriverConnectorInterface
     {
         return match ($driver) {
+            'mariadb' => new MariaDB\Connector($connection, $schema, $table),
             'mysql' => new MySQL\Connector($connection, $schema, $table),
             'sqlite' => new SQLite\Connector($connection, $schema, $table),
             'pgsql' => new PostgreSQL\Connector($connection, $schema, $table),

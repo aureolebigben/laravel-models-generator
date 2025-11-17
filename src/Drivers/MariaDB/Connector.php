@@ -2,17 +2,19 @@
 
 declare(strict_types=1);
 
-namespace GiacomoMasseroni\LaravelModelsGenerator\Drivers\PostgreSQL;
+namespace GiacomoMasseroni\LaravelModelsGenerator\Drivers\MariaDB;
 
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception;
 use Doctrine\DBAL\Schema\Column;
+use Doctrine\DBAL\Types\Type;
 use GiacomoMasseroni\LaravelModelsGenerator\Concerns\DBALable;
 use GiacomoMasseroni\LaravelModelsGenerator\Contracts\DriverConnectorInterface;
 use GiacomoMasseroni\LaravelModelsGenerator\Drivers\DriverConnector;
 use GiacomoMasseroni\LaravelModelsGenerator\Entities\Property;
 use GiacomoMasseroni\LaravelModelsGenerator\Entities\View;
 use Illuminate\Support\Facades\DB;
+use Ramsey\Uuid\Doctrine\UuidType;
 
 class Connector extends DriverConnector implements DriverConnectorInterface
 {
@@ -26,6 +28,10 @@ class Connector extends DriverConnector implements DriverConnectorInterface
         parent::__construct($connection, $schema, $table);
 
         $this->conn = DriverManager::getConnection($this->connectionParams());
+
+        // Add Uuid ramsey type in doctrine for uuid column
+        Type::addType('uuid', UuidType::class);
+
         $platform = $this->conn->getDatabasePlatform();
         $platform->registerDoctrineTypeMapping('enum', 'string');
         $this->sm = $this->conn->createSchemaManager();
@@ -39,7 +45,8 @@ class Connector extends DriverConnector implements DriverConnectorInterface
             'user' => (string) config('database.connections.'.config('database.default').'.username'),
             'password' => (string) config('database.connections.'.config('database.default').'.password'),
             'host' => (string) config('database.connections.'.config('database.default').'.host'),
-            'driver' => 'pdo_'.config('database.connections.'.config('database.default').'.driver'),
+            'port' => (string) config('database.connections.'.config('database.default').'.port'),
+            'driver' => 'pdo_mysql',
         ];
     }
 
@@ -75,12 +82,13 @@ class Connector extends DriverConnector implements DriverConnectorInterface
         /** @var array<string, View> $dbViews */
         $dbViews = [];
 
-        $sql = 'SELECT table_name FROM INFORMATION_SCHEMA.views WHERE table_schema = ANY (current_schemas(false))';
+        $sql = "SHOW FULL TABLES IN $this->schema WHERE TABLE_TYPE LIKE 'VIEW'";
         $rows = DB::select($sql);
         // dd($rows);
 
         foreach ($rows as $row) {
-            $dbViews[$row->table_name] = $this->getView($row->table_name);
+            $columnName = "Tables_in_{$this->schema}";
+            $dbViews[$row->$columnName] = $this->getView($row->$columnName);
         }
 
         return $dbViews;

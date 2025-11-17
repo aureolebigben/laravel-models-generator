@@ -8,6 +8,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception;
 use Doctrine\DBAL\Schema\AbstractSchemaManager;
 use Doctrine\DBAL\Schema\Column;
+use Doctrine\DBAL\Schema\Table as TableDoctrine;
 use Doctrine\DBAL\Types\BigIntType;
 use Doctrine\DBAL\Types\BooleanType;
 use Doctrine\DBAL\Types\DateImmutableType;
@@ -21,8 +22,6 @@ use Doctrine\DBAL\Types\FloatType;
 use Doctrine\DBAL\Types\IntegerType;
 use Doctrine\DBAL\Types\SmallFloatType;
 use Doctrine\DBAL\Types\SmallIntType;
-use Doctrine\DBAL\Types\StringType;
-use Doctrine\DBAL\Types\TextType;
 use Doctrine\DBAL\Types\Type;
 use GiacomoMasseroni\LaravelModelsGenerator\Contracts\DriverConnectorInterface;
 use GiacomoMasseroni\LaravelModelsGenerator\Entities\Entity;
@@ -65,6 +64,10 @@ trait DBALable
      */
     private array $typeColumnPropertyMaps = [
         'datetime' => 'Carbon',
+        'immutable_date' => 'CarbonImmutable',
+        'immutable_datetime' => 'CarbonImmutable',
+        'decimal' => 'BigDecimal',
+        'collection' => 'Collection',
     ];
 
     /**
@@ -76,7 +79,7 @@ trait DBALable
     }
 
     /**
-     * @param  list<\Doctrine\DBAL\Schema\Table>  $tables
+     * @param  list<TableDoctrine>  $tables
      *
      * @return Table[]
      *
@@ -101,7 +104,7 @@ trait DBALable
                 $primaryKeyName = $indexes['primary']->getColumns()[0];
                 foreach ($columns as $column) {
                     if ($column->getName() == $indexes['primary']->getColumns()[0]) {
-                        $dbTable->primaryKey = new PrimaryKey($primaryKeyName, $column->getAutoincrement(), $this->laravelColumnType($this->mapColumnType($column->getType())));
+                        $dbTable->primaryKey = new PrimaryKey($primaryKeyName, $column->getAutoincrement(), $this->laravelColumnType($column));
                     }
                     break;
                 }
@@ -141,12 +144,12 @@ trait DBALable
 
             /** @var Column $column */
             foreach ($columns as $column) {
-                $laravelColumnType = $this->laravelColumnType($this->mapColumnType($column->getType()), $dbTable);
-                $dbTable->casts[$column->getName()] = $this->laravelColumnTypeForCast($this->mapColumnType($column->getType()), $dbTable);
+                $laravelColumnType = $this->laravelColumnType($column, $table, $dbTable);
+                $dbTable->casts[$column->getName()] = $this->laravelColumnTypeForCast($column, $table, $dbTable);
 
                 $properties[] = new Property(
                     '$'.$column->getName(),
-                    ($this->typeColumnPropertyMaps[$laravelColumnType] ?? $laravelColumnType).($column->getNotnull() ? '' : '|null'),
+                    ($column->getNotnull() ? '' : '?').($this->typeColumnPropertyMaps[$laravelColumnType] ?? $laravelColumnType),
                     comment: $column->getComment(),
                     defaultValue: $column->getDefault()
                 ); // $laravelColumnType.($column->getNotnull() ? '' : '|null').' $'.$column->getName();
@@ -286,40 +289,124 @@ trait DBALable
         return $dbTables;
     }
 
-    public function laravelColumnTypeForCast(ColumnTypeEnum $type, ?Entity $dbTable = null): string
+    public function laravelColumnTypeForCast(Column $column, ?TableDoctrine $table = null, ?Entity $dbTable = null): string
     {
-        return match ($type) {
+        $type = $this->mapColumnType($column->getType());
+
+        $castLaravel = match ($type) {
             ColumnTypeEnum::INT => 'integer',
             ColumnTypeEnum::DATETIME => 'datetime',
-            ColumnTypeEnum::FLOAT => 'float',
+            ColumnTypeEnum::IMMUTABLE_DATETIME => 'immutable_datetime',
+            ColumnTypeEnum::FLOAT => config('models-generator.decimal') === true ? 'decimal:'.$column->getScale() : 'float',
             ColumnTypeEnum::BOOLEAN => 'boolean',
             default => 'string',
         };
+
+        $configCastCustom = (array) config('models-generator.casting');
+        if ($table !== null && isset($configCastCustom[$table->getName()][$column->getName()])) {
+            $castLaravel = $configCastCustom[$table->getName()][$column->getName()];
+        } elseif (isset($configCastCustom[$column->getName()])) {
+            $castLaravel = $configCastCustom[$column->getName()];
+        }
+
+        return $castLaravel;
     }
 
-    public function laravelColumnType(ColumnTypeEnum $type, ?Entity $dbTable = null): string
+    public function laravelColumnType(Column $column, ?TableDoctrine $table = null, ?Entity $dbTable = null): string
     {
-        if ($type == ColumnTypeEnum::INT) {
+        $type = $this->mapColumnType($column->getType());
+
+        // If properties is defined for column in config
+        $configProperties = config('models-generator.properties');
+        if ($table !== null && isset($configProperties[$table->getName()][$column->getName()])) {
+            return $configProperties[$table->getName()][$column->getName()];
+        }
+        if (isset($configProperties[$column->getName()])) {
+            return $configProperties[$column->getName()];
+        }
+
+        $configEnums = (array) config('models-generator.enums_casting', []);
+        if ($table !== null && isset($configEnums[$table->getName()][$column->getName()])) {
+            return '\\'.$configEnums[$table->getName()][$column->getName()];
+        }
+        if (isset($configEnums[$column->getName()])) {
+            return '\\'.$configEnums[$column->getName()];
+        }
+
+        // If laravel cast is defined for column, get the property associate
+        $configCasting = config('models-generator.casting');
+        if ($table !== null && isset($configCasting[$table->getName()][$column->getName()])) {
+            $primitiveCastType = $configCasting[$table->getName()][$column->getName()];
+            $type = $this->typePropertyFromCustomCast($primitiveCastType);
+        }
+        if (isset($configCasting[$column->getName()])) {
+            $primitiveCastType = $configCasting[$column->getName()];
+            $type = $this->typePropertyFromCustomCast($primitiveCastType);
+        }
+
+        if ($type === ColumnTypeEnum::INT) {
             return 'int';
         }
-        if ($type == ColumnTypeEnum::DATETIME) {
+        if ($type === ColumnTypeEnum::IMMUTABLE_DATETIME) {
+            if ($dbTable !== null) {
+                $dbTable->imports[] = 'Carbon\CarbonImmutable';
+            }
+
+            return 'immutable_datetime';
+        }
+        if ($type === ColumnTypeEnum::DATETIME) {
             if ($dbTable !== null) {
                 $dbTable->imports[] = 'Carbon\Carbon';
             }
 
             return 'datetime';
         }
-        if ($type == ColumnTypeEnum::STRING) {
-            return 'string';
-        }
-        if ($type == ColumnTypeEnum::FLOAT) {
+        if ($type === ColumnTypeEnum::FLOAT) {
+            if (config('models-generator.float_to_decimal') === true) {
+                if ($dbTable !== null) {
+                    $dbTable->imports[] = 'Brick\Math\BigDecimal';
+                }
+
+                return 'decimal';
+            }
+
             return 'float';
         }
-        if ($type == ColumnTypeEnum::BOOLEAN) {
+        if ($type === ColumnTypeEnum::BOOLEAN) {
             return 'bool';
+        }
+        if ($type === ColumnTypeEnum::COLLECTION && $dbTable !== null) {
+            $dbTable->imports[] = 'Illuminate\Database\Eloquent\Collection';
         }
 
         return 'string';
+    }
+
+    private function typePropertyFromCustomCast(string $primitiveCastType): ColumnTypeEnum
+    {
+        return match ($primitiveCastType) {
+            'int',
+            'integer',
+            'timestamp' => ColumnTypeEnum::INT,
+            'float',
+            'real',
+            'double' => ColumnTypeEnum::FLOAT,
+            'array',
+            'encrypted:array',
+            'json',
+            'json:unicode' => ColumnTypeEnum::ARRAY,
+            'bool',
+            'boolean' => ColumnTypeEnum::BOOLEAN,
+            'object' => ColumnTypeEnum::OBJECT,
+            'collection' => ColumnTypeEnum::COLLECTION,
+            'date',
+            'datetime',
+            'custom_datetime' => ColumnTypeEnum::DATETIME,
+            'immutable_date',
+            'immutable_datetime',
+            'immutable_custom_datetime' => ColumnTypeEnum::IMMUTABLE_DATETIME,
+            default => ColumnTypeEnum::STRING,
+        };
     }
 
     /**
@@ -360,16 +447,15 @@ trait DBALable
         }
         if ($type instanceof DateType ||
             $type instanceof DateTimeType ||
-            $type instanceof DateImmutableType ||
-            $type instanceof DateTimeImmutableType ||
-            $type instanceof DateTimeTzType ||
-            $type instanceof DateTimeTzImmutableType
+            $type instanceof DateTimeTzType
         ) {
             return ColumnTypeEnum::DATETIME;
         }
-        if ($type instanceof StringType ||
-            $type instanceof TextType) {
-            return ColumnTypeEnum::STRING;
+        if ($type instanceof DateImmutableType ||
+            $type instanceof DateTimeImmutableType ||
+            $type instanceof DateTimeTzImmutableType
+        ) {
+            return ColumnTypeEnum::IMMUTABLE_DATETIME;
         }
         if ($type instanceof DecimalType ||
             $type instanceof SmallFloatType ||
