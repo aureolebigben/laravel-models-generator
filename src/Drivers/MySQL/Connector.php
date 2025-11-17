@@ -39,6 +39,7 @@ class Connector extends DriverConnector implements DriverConnectorInterface
             'user' => (string) config('database.connections.'.config('database.default').'.username'),
             'password' => (string) config('database.connections.'.config('database.default').'.password'),
             'host' => (string) config('database.connections.'.config('database.default').'.host'),
+            'port' => (string) config('database.connections.'.config('database.default').'.port'),
             'driver' => 'pdo_'.config('database.connections.'.config('database.default').'.driver'),
         ];
     }
@@ -56,8 +57,8 @@ class Connector extends DriverConnector implements DriverConnectorInterface
 
         /** @var Column $column */
         foreach ($columns as $column) {
-            $laravelColumnType = $this->laravelColumnType($this->mapColumnType($column->getType()), $dbView);
-            $dbView->casts[$column->getName()] = $this->laravelColumnTypeForCast($this->mapColumnType($column->getType()), $dbView);
+            $laravelColumnType = $this->laravelColumnType($column, null, $dbView);
+            $dbView->casts[$column->getName()] = $this->laravelColumnTypeForCast($column, null, $dbView);
 
             $properties[] = new Property(
                 '$'.$column->getName(),

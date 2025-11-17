@@ -230,6 +230,9 @@ return [
     | Enum(s) implemented by all models.
     | Ex.
     |   'column' => EnumClass::class,
+    |   'table_name' => [
+    |       'column' => EnumClass::class,
+    |    ],
     |
     */
     'enums_casting' => [
@@ -386,5 +389,48 @@ return [
     |
     */
     'exclude_relationships' => [
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Transform type float to decimal
+    |--------------------------------------------------------------------------
+    |
+    | Change float to decimal (with the scale) and type the properties with
+    | Brick\Math\BigDecimal
+    |
+    */
+    'float_to_decimal' => false,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Casting
+    |--------------------------------------------------------------------------
+    |
+    | Select the casting for one column for all models or for each model
+    | Ex :
+    | 'column_name' => 'json',
+    | 'table_name' => [
+    |       'column_name' => 'date',
+    |   ],
+    |
+    */
+    'casting' => [
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Casting
+    |--------------------------------------------------------------------------
+    |
+    | Personalize properties
+    | Ex :
+    | 'column_name' => 'string[]',
+    | 'table_name' => [
+    |       'column_name' => 'array{keyOne: int, keyTwo: string}',
+    |   ],
+    |
+    */
+    'properties' => [
     ],
 ];

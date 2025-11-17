@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace GiacomoMasseroni\LaravelModelsGenerator\Contracts;
 
+use Doctrine\DBAL\Schema\Column;
 use GiacomoMasseroni\LaravelModelsGenerator\Entities\Entity;
 use GiacomoMasseroni\LaravelModelsGenerator\Entities\Table;
 use GiacomoMasseroni\LaravelModelsGenerator\Entities\View;
-use GiacomoMasseroni\LaravelModelsGenerator\Enums\ColumnTypeEnum;
 
 interface DriverConnectorInterface
 {
@@ -38,7 +38,7 @@ interface DriverConnectorInterface
      */
     public function getEntityIndexes(string $entityName): array;
 
-    public function laravelColumnTypeForCast(ColumnTypeEnum $type, ?Entity $dbTable = null): string;
+    public function laravelColumnTypeForCast(Column $column, \Doctrine\DBAL\Schema\Table $table, ?Entity $dbTable = null): string;
 
-    public function laravelColumnType(ColumnTypeEnum $type, ?Entity $dbTable = null): string;
+    public function laravelColumnType(Column $column, \Doctrine\DBAL\Schema\Table $table, ?Entity $dbTable = null): string;
 }

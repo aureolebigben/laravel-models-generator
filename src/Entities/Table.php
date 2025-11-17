@@ -46,7 +46,7 @@ class Table extends Entity
 
             $this->belongsToMany[] = $belongsToMany;
 
-            $this->properties[] = new Property('$'.$belongsToMany->name, 'Collection|'.$belongsToMany->foreignClassName.'[]', false);
+            $this->properties[] = new Property('$'.$belongsToMany->name, 'Collection<int, '.$belongsToMany->foreignClassName.'>', false);
             $this->imports[] = 'Illuminate\Database\Eloquent\Collection';
         }
 
@@ -104,7 +104,7 @@ class Table extends Entity
             } else {
                 $this->hasMany[$key]->name = NamingHelper::caseRelationName(Str::plural($hasMany->name));
             }
-            $this->properties[] = new Property('$'.$hasMany->name, 'Collection|'.$hasMany->related.'[]', false);
+            $this->properties[] = new Property('$'.$hasMany->name, 'Collection<int, '.$hasMany->related.'>', false);
             $this->imports[] = 'Illuminate\Database\Eloquent\Collection';
         }
     }
