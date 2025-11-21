@@ -91,8 +91,11 @@ class Entity
     {
         $this->dbalVersion = DBALVersionFactory::create();
 
+        $parentModel = in_array($name, config('models-generator.pivot'), true)
+            ? 'Pivot'
+            : (string) config('models-generator.parent', 'Model');
         /** @var array<string> $parts */
-        $parts = explode('\\', (string) config('models-generator.parent', 'Model'));
+        $parts = explode('\\', $parentModel);
         $this->parent = $parts ? end($parts) : 'Model';
         $this->interfaces = (array) config('models-generator.interfaces', []);
         $this->traits = array_map(function (string $trait) {
