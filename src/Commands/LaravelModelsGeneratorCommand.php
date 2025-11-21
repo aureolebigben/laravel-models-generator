@@ -17,6 +17,8 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Database\Eloquent\Relations\Pivot;
+use Illuminate\Database\Eloquent\Model;
 
 class LaravelModelsGeneratorCommand extends Command
 {
@@ -187,7 +189,9 @@ class LaravelModelsGeneratorCommand extends Command
             $traits = [];
 
             if ($dbEntity->importLaravelModel()) {
-                $arImports[] = config('models-generator.parent', 'Illuminate\Database\Eloquent\Model');
+                $arImports[] = in_array($dbEntity->name, config('models-generator.pivot'), true)
+                    ? Pivot::class
+                    : config('models-generator.parent', Model::class);
             }
 
             if (count($dbEntity->belongsTo) > 0) {
