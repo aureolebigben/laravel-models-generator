@@ -215,7 +215,13 @@ trait DBALable
 
             foreach ($fks as $fk) {
                 if (isRelationshipToBeAdded($dbTable->name, $dbTable->dbalVersion->getForeignTableName($fk))) {
-                    $dbTable->addBelongsTo(new BelongsTo($fk));
+                    // Check if the referencing column is null or not null to add null to the relationship properties if needed
+                    $localColumnFK = $fk->getReferencingColumnNames()[0]->getIdentifier()->getValue();
+                    $localColumnIsNotNullable = false;
+                    if (array_key_exists($localColumnFK, $columns)) {
+                        $localColumnIsNotNullable = $columns[$localColumnFK]->getNotnull();
+                    }
+                    $dbTable->addBelongsTo(new BelongsTo($fk), $localColumnIsNotNullable);
                 }
             }
 
