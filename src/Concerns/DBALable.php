@@ -303,7 +303,7 @@ trait DBALable
             ColumnTypeEnum::INT => 'integer',
             ColumnTypeEnum::DATETIME => 'datetime',
             ColumnTypeEnum::IMMUTABLE_DATETIME => 'immutable_datetime',
-            ColumnTypeEnum::FLOAT => config('models-generator.decimal') === true ? 'decimal:'.$column->getScale() : 'float',
+            ColumnTypeEnum::FLOAT => config('models-generator.float_to_decimal') === true ? 'decimal:'.$column->getScale() : 'float',
             ColumnTypeEnum::BOOLEAN => 'boolean',
             default => 'string',
         };
