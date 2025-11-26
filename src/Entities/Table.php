@@ -53,7 +53,7 @@ class Table extends Entity
         return $this;
     }
 
-    public function addBelongsTo(BelongsTo $belongsTo): self
+    public function addBelongsTo(BelongsTo $belongsTo, bool $localColumnIsNotNullable): self
     {
         $alreadyInserted = false;
         foreach ($this->belongsTo as $rel) {
@@ -79,7 +79,11 @@ class Table extends Entity
 
             $this->belongsTo[$belongsTo->foreignKey->getName()] = $belongsTo;
 
-            $this->properties[] = new Property('$'.$belongsTo->name, $belongsTo->foreignClassName, false);
+            $this->properties[] = new Property(
+                '$'.$belongsTo->name,
+                ($localColumnIsNotNullable ? '' : '?').$belongsTo->foreignClassName,
+                false
+            );
         }
 
         return $this;
